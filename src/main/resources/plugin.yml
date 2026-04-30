@@ -1,0 +1,5 @@
+name: PolymarketOdds
+version: 1.0.0
+main: com.polymarketodds.PolymarketOdds
+api-version: '1.21'
+description: Posts Arsenal Premier League win odds from Polymarket every 5 minutes
