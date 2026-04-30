@@ -14,15 +14,12 @@ import java.net.URL;
 
 public class PolymarketOdds extends JavaPlugin {
 
-    // Arsenal EPL Winner market slug on Polymarket
-    private static final String GAMMA_API = "https://gamma-api.polymarket.com/markets?slug=will-arsenal-win-the-2025-26-english-premier-league";
-    private static final long INTERVAL_TICKS = 20L * 60 * 5; // 5 minutes
+    private static final String GAMMA_API = "https://gamma-api.polymarket.com/markets?slug=will-arsenal-win-the-202526-english-premier-league";
+    private static final long INTERVAL_TICKS = 20L * 60 * 5;
 
     @Override
     public void onEnable() {
         getLogger().info("PolymarketOdds enabled - fetching Arsenal odds every 5 minutes");
-
-        // Post immediately on startup, then every 5 minutes
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -45,7 +42,6 @@ public class PolymarketOdds extends JavaPlugin {
             String bar = buildBar(percent);
             String trend = getTrend(percent);
 
-            // Build the message
             Component message = Component.text()
                 .append(Component.text("⚽ ", NamedTextColor.WHITE))
                 .append(Component.text("ARSENAL", NamedTextColor.RED, TextDecoration.BOLD))
@@ -56,7 +52,6 @@ public class PolymarketOdds extends JavaPlugin {
                 .append(Component.text(" (Polymarket)", NamedTextColor.DARK_GRAY))
                 .build();
 
-            // Broadcast on main thread
             Bukkit.getScheduler().runTask(this, () ->
                 Bukkit.broadcast(message)
             );
@@ -75,10 +70,8 @@ public class PolymarketOdds extends JavaPlugin {
         conn.setConnectTimeout(5000);
         conn.setReadTimeout(5000);
         conn.setRequestProperty("User-Agent", "Mozilla/5.0");
-
         int status = conn.getResponseCode();
         if (status != 200) throw new Exception("HTTP " + status);
-
         BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
         StringBuilder sb = new StringBuilder();
         String line;
@@ -88,40 +81,20 @@ public class PolymarketOdds extends JavaPlugin {
     }
 
     private double parseOdds(String json) {
-        // Look for "outcomePrices" field which contains [yesPrice, noPrice]
-        // e.g. "outcomePrices":"[\"0.51\",\"0.49\"]"
+        // Response format: "outcomePrices":"[\"0.515\", \"0.485\"]"
         try {
             int idx = json.indexOf("outcomePrices");
-            if (idx == -1) {
-                // Try tokens array with price field
-                // Look for "outcome":"Yes" and nearby "price"
-                idx = json.indexOf("\"Yes\"");
-                if (idx == -1) idx = json.indexOf("\"yes\"");
-                if (idx == -1) return -1;
+            if (idx == -1) return -1;
 
-                // Find price near this
-                int priceIdx = json.indexOf("\"price\"", idx - 50);
-                if (priceIdx == -1) priceIdx = json.indexOf("\"price\"", idx);
-                if (priceIdx == -1) return -1;
+            int arrayStart = json.indexOf("[", idx);
+            if (arrayStart == -1) return -1;
 
-                int colonIdx = json.indexOf(":", priceIdx);
-                int commaIdx = json.indexOf(",", colonIdx);
-                int braceIdx = json.indexOf("}", colonIdx);
-                int end = Math.min(
-                    commaIdx == -1 ? Integer.MAX_VALUE : commaIdx,
-                    braceIdx == -1 ? Integer.MAX_VALUE : braceIdx
-                );
-                String priceStr = json.substring(colonIdx + 1, end).trim().replace("\"", "");
-                return Double.parseDouble(priceStr);
-            }
+            int arrayEnd = json.indexOf("]", arrayStart);
+            if (arrayEnd == -1) return -1;
 
-            // Parse outcomePrices array
-            int start = json.indexOf("[", idx);
-            int end = json.indexOf("]", start);
-            String pricesStr = json.substring(start + 1, end);
-            // First value is Yes price
-            String[] parts = pricesStr.split(",");
-            String firstPrice = parts[0].trim().replace("\"", "").replace("\\", "");
+            String arrayStr = json.substring(arrayStart + 1, arrayEnd);
+            String[] parts = arrayStr.split(",");
+            String firstPrice = parts[0].replaceAll("[\\\\\"\\s]", "");
             return Double.parseDouble(firstPrice);
 
         } catch (Exception e) {
@@ -133,9 +106,7 @@ public class PolymarketOdds extends JavaPlugin {
     private String buildBar(int percent) {
         int filled = percent / 10;
         StringBuilder bar = new StringBuilder();
-        for (int i = 0; i < 10; i++) {
-            bar.append(i < filled ? "█" : "░");
-        }
+        for (int i = 0; i < 10; i++) bar.append(i < filled ? "█" : "░");
         return bar.toString();
     }
 
